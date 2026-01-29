@@ -1,0 +1,270 @@
+# Zephyr Browser Architecture
+
+## Overview
+
+Zephyr is built with a modular, layered architecture that prioritizes performance, security, and extensibility.
+
+## Core Components
+
+### 1. Browser Core (`src/core/`)
+
+The browser core is the heart of Zephyr, responsible for coordinating all major subsystems.
+
+#### Render Engine (`engine.rs`)
+- **Purpose**: Parse and render web content
+- **Technologies**: 
+  - `html5ever` for HTML parsing
+  - `cssparser` for CSS parsing
+  - Custom layout engine
+- **Key Features**:
+  - Incremental rendering
+  - Progressive enhancement
+  - Hardware acceleration support
+
+#### Network Stack (`network.rs`)
+- **Purpose**: Handle all network communication
+- **Protocols Supported**:
+  - HTTP/1.1, HTTP/2, HTTP/3 (QUIC)
+  - WebSocket (WS/WSS)
+  - WebRTC
+  - FTP, IPFS, Gemini, Dat
+- **Key Features**:
+  - Connection pooling
+  - Automatic retry with backoff
+  - Request prioritization
+  - Parallel downloads
+
+#### Cache Manager (`cache.rs`)
+- **Purpose**: Fast content caching and retrieval
+- **Storage**: Sled embedded database
+- **Strategies**:
+  - LRU eviction
+  - Content-aware caching
+  - Compression
+- **Performance**: Sub-millisecond cache hits
+
+#### Security Manager (`security.rs`)
+- **Purpose**: Enforce security policies
+- **Features**:
+  - Certificate validation
+  - Content Security Policy (CSP)
+  - Mixed content blocking
+  - Sandboxing
+
+### 2. User Interface (`src/ui/`)
+
+Built with Wry (cross-platform WebView) and Tao (window management).
+
+#### Design Principles
+- **Minimalism**: Only essential UI elements
+- **Performance**: Lazy loading and virtual scrolling
+- **Accessibility**: WCAG 2.1 AA compliance
+- **Responsiveness**: Sub-16ms frame times
+
+#### Components
+- Tab management
+- Address bar with smart suggestions
+- Minimalist controls
+- Status indicators
+
+### 3. Protocol Handlers (`src/protocols/`)
+
+Extensible protocol system supporting multiple transport protocols.
+
+#### HTTP Handler
+- HTTP/1.1, HTTP/2, HTTP/3
+- Connection reuse
+- TLS 1.3
+- ALPN negotiation
+
+#### Alternative Protocols
+- **IPFS**: Content-addressed hypermedia
+- **Gemini**: Lightweight internet protocol
+- **Dat**: Peer-to-peer sharing
+
+## Data Flow
+
+```
+┌────────────┐
+│    User    │
+└─────┬──────┘
+      │
+      ├─ Input Event
+      ↓
+┌─────────────┐
+│  UI Layer   │ ← React to user actions
+└─────┬───────┘
+      │
+      ├─ Navigation Request
+      ↓
+┌──────────────┐
+│ Browser Core │ ← Coordinate subsystems
+└──────┬───────┘
+      │
+      ├───────┬───────┬───────┐
+      ↓       ↓       ↓       ↓
+   ┌────┐ ┌──────┐ ┌─────┐ ┌────────┐
+   │Net │ │Cache │ │Sec. │ │Render  │
+   │    │ │      │ │     │ │Engine  │
+   └──┬─┘ └───┬──┘ └──┬──┘ └───┬────┘
+      │       │       │        │
+      ↓       ↓       ↓        ↓
+   ┌──────────────────────────────┐
+   │      Display to User         │
+   └──────────────────────────────┘
+```
+
+## Threading Model
+
+### Main Thread
+- UI rendering
+- Event handling
+- JavaScript execution
+
+### Network Thread Pool
+- HTTP requests (Tokio async)
+- DNS resolution
+- Certificate validation
+
+### Render Thread Pool
+- HTML parsing
+- CSS parsing
+- Layout calculation
+- Paint operations
+
+## Memory Management
+
+### Allocation Strategy
+- Arena allocation for DOM nodes
+- Object pooling for frequent allocations
+- Copy-on-write for shared data
+
+### Limits
+- Per-tab memory limit: 512MB (configurable)
+- Cache size limit: 500MB (configurable)
+- Max concurrent connections: 100
+
+## Security Architecture
+
+### Process Isolation
+- Each tab runs in isolated context
+- Renderer process sandboxing
+- GPU process separation
+
+### Content Security
+- Strict CSP enforcement
+- HTTPS-only mode option
+- Certificate pinning
+- Subresource Integrity (SRI)
+
+### Privacy Features
+- No telemetry by default
+- Optional tracking protection
+- First-party isolation
+- Secure cookie handling
+
+## Performance Optimizations
+
+### Startup
+- Lazy module loading
+- JIT compilation caching
+- Profile-guided optimization (PGO)
+
+### Runtime
+- Incremental layout
+- GPU-accelerated compositing
+- Request coalescing
+- Predictive prefetching
+
+### Memory
+- Aggressive garbage collection
+- Tab hibernation
+- Resource unloading
+- Compressed caching
+
+## Extension System (Planned)
+
+### Architecture
+- WebExtension API compatibility
+- Process-isolated extensions
+- Declarative permissions
+- Content script injection
+
+### Security
+- Sandboxed execution
+- Permission prompts
+- Code signing requirement
+- API rate limiting
+
+## Testing Strategy
+
+### Unit Tests
+- Rust tests with `cargo test`
+- Isolated component testing
+- Property-based testing with `quickcheck`
+
+### Integration Tests
+- End-to-end browser testing
+- Protocol compatibility tests
+- Performance benchmarks
+
+### Continuous Integration
+- Automated testing on push
+- Cross-platform builds
+- Memory leak detection
+- Security scanning
+
+## Build System
+
+### Development
+```bash
+cargo build          # Debug build
+cargo run            # Run debug build
+cargo watch -x run   # Auto-rebuild on changes
+```
+
+### Release
+```bash
+cargo build --release  # Optimized build
+strip target/release/zephyr  # Remove symbols
+```
+
+### Optimization Flags
+- LTO (Link-Time Optimization)
+- Codegen units: 1 (for max optimization)
+- Panic: abort (smaller binary)
+- Strip: true (remove debug symbols)
+
+## Dependencies
+
+### Core Dependencies
+- **tokio**: Async runtime
+- **wry**: WebView library
+- **reqwest**: HTTP client
+- **html5ever**: HTML parser
+- **sled**: Embedded database
+
+### Dependency Management
+- Minimal dependency count
+- Regular security audits
+- Version pinning for stability
+- Optional features to reduce bloat
+
+## Future Enhancements
+
+### Short-term
+- Full protocol implementations
+- Extension system
+- Developer tools
+- Sync service
+
+### Long-term
+- Custom JS engine
+- Native ad blocking
+- Built-in VPN
+- Blockchain integration
+- Quantum-resistant crypto
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and architecture decisions.
